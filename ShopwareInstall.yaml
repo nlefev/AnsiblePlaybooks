@@ -12,11 +12,16 @@
    - name: DownloadURL
      prompt: Paste Shopware download URL here(Leave blank if migrating)
      private: no
+   - name: DbRootUserPass
+     prompt: Enter database root password
+     private: no
+   - name: ShopDbUserPass
+     prompt: Enter shop db user password
+     private: no
   tasks:
    - name: Update apt cache
      apt:
-      update_cache=yes
-      force_apt_get=yes
+       update_cache: true
    - name: Install software
      apt:
        pkg:
@@ -49,7 +54,7 @@
          - ffmpeg
          - redis-server
        state: latest
-   - name: Setup Apache2
+   - name: Configure Apache
      shell: |
        a2enmod ssl rewrite headers proxy proxy_http deflate cache proxy_wstunnel http2 proxy_fcgi env expires
        a2enconf php8.1-fpm
@@ -61,6 +66,7 @@
        systemctl enable apache2
        systemctl enable mariadb
        systemctl enable php8.1-fpm
+
    - name: Replace php.ini
      copy:
        #Update this to current location
@@ -72,6 +78,7 @@
      ansible.builtin.file:
        path: /var/www/html
        state: absent
+
    - name: Download Shopware
      ansible.builtin.get_url:
        url: '{{DownloadURL}}'
@@ -82,6 +89,7 @@
        unzip /var/www/Install.zip -d /var/www/html
        chown -R www-data:www-data /var/www/html
      when: Migration == 'n'
+
    - name: Copy over Shopware.conf
      copy:
        #Update this to current location
@@ -98,9 +106,38 @@
        a2ensite Shopware.conf
    - name: Restart Apache2
      shell: systemctl restart apache2
-   - name: Show mysql warning
-     ansible.builtin.debug:
-       msg: 'You need to now run /etc/mysql_secure_installation on the remote machine'
+
+   - name: Add python MySQL support
+     apt:
+      name: python3-mysqldb
+      state: present
+   - name: Set MySQL root password
+     mysql_user: user=root password={{DbRootUserPass}} host=localhost
+     ignore_errors: true
+   - name: Create Shopware database
+     mysql_db:
+       login_user: root
+       login_password: '{{DbRootUserPass}}'
+       name: Shopware
+       state: present
+     when: Migration == 'n'
+   - name: Create Shopware db user
+     mysql_user:
+       login_user: root
+       login_password: '{{DbRootUserPass}}'
+       name: shop_user
+       password: '{{ShopDbUserPass}}'
+       priv:
+         'Shopware.*': 'ALL,GRANT'
+       state: present
+     when: Migration == 'n'
+   - name: Remove test database
+     mysql_db:
+       login_user: root
+       login_password: '{{DbRootUserPass}}'
+       name: test
+       state: absent
+
    - name: Show migration warning
      ansible.builtin.debug:
        msg: Since this is a migration don't forget to copy the database over!

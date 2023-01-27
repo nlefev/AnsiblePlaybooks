@@ -3,10 +3,13 @@
   become: true
   vars_prompt:
     - name: ShareName
-      prompt: Enter in the primary share name (THERE CAN BE NO SPACES!)
+      prompt: Enter the primary share name (THERE CAN BE NO SPACES!)
       private: no
     - name: ShareUser
-      prompt: Enter in owner username
+      prompt: Enter the owner username
+      private: no
+    - name: SharePass
+      prompt: Enter share password
       private: no
   tasks:
     - name: Update apt cache
@@ -23,7 +26,6 @@
         state: directory
         owner: '{{ShareUser}}'
         group: '{{ShareUser}}'
-
     - name: Configure share name
       lineinfile:
         path: /etc/samba/smb.conf
@@ -35,11 +37,16 @@
         block: |
           [{{ShareName}}]
           path = /{{ShareName}}
-          public = yes
-          guest only = yes
+          comment = Samba share directory
+          read only = no
           writable = yes
-          force create mode = 0666
-          force directory mode = 0777
           browseable = yes
+          guest ok = no
+          valid users = {{ShareUser}}
+    - name: Add Samba user
+      expect:
+        command: smbpasswd -a {{ShareUser}}
+        responses:
+          (?i)password:  '{{SharePass}}'
     - name: Restart Samba
       shell: systemctl restart smbd
