@@ -64,7 +64,7 @@
    - name: Replace php.ini
      copy:
        #Update this to current location
-       src: /home/noah/AnsiblePlaybooks/php.ini
+       src: /home/noah/AnsiblePlaybooks/ConfigFiles/php.ini
        dest: /etc/php/8.1/fpm/php.ini
    - name: Restart PHP
      shell: systemctl restart php8.1-fpm
@@ -85,7 +85,7 @@
    - name: Copy over Shopware.conf
      copy:
        #Update this to current location
-       src: /home/noah/AnsiblePlaybooks/Shopware.conf
+       src: /home/noah/AnsiblePlaybooks/ConfigFiles/Shopware.conf
        dest: /etc/apache2/sites-available/Shopware.conf
    - name: Edit Shopware.conf
      ansible.builtin.lineinfile:
@@ -104,3 +104,4 @@
    - name: Show migration warning
      ansible.builtin.debug:
        msg: Since this is a migration don't forget to copy the database over!
+     when: Migration == 'y'
