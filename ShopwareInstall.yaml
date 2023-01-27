@@ -5,8 +5,12 @@
    - name: ShopDomain
      prompt: Enter in shop domain
      private: no
+   - name: Migration
+     prompt: Is this a shop migration?(y/n)
+     default: 'n'
+     private: no
    - name: DownloadURL
-     prompt: Paste Shopware download URL here
+     prompt: Paste Shopware download URL here(Leave blank if migrating)
      private: no
   tasks:
    - name: Update apt cache
@@ -59,7 +63,8 @@
        systemctl enable php8.1-fpm
    - name: Replace php.ini
      copy:
-       src: /home/noah/php.ini
+       #Update this to current location
+       src: /home/noah/AnsiblePlaybooks/ConfigFiles/php.ini
        dest: /etc/php/8.1/fpm/php.ini
    - name: Restart PHP
      shell: systemctl restart php8.1-fpm
@@ -71,13 +76,16 @@
      ansible.builtin.get_url:
        url: '{{DownloadURL}}'
        dest: /var/www/Install.zip
+     when: Migration == 'n'
    - name: Unzip Shopware
      shell: |
        unzip /var/www/Install.zip -d /var/www/html
        chown -R www-data:www-data /var/www/html
+     when: Migration == 'n'
    - name: Copy over Shopware.conf
      copy:
-       src: /home/noah/Shopware.conf
+       #Update this to current location
+       src: /home/noah/AnsiblePlaybooks/ConfigFiles/Shopware.conf
        dest: /etc/apache2/sites-available/Shopware.conf
    - name: Edit Shopware.conf
      ansible.builtin.lineinfile:
@@ -90,6 +98,10 @@
        a2ensite Shopware.conf
    - name: Restart Apache2
      shell: systemctl restart apache2
-   - name: Show message
+   - name: Show mysql warning
      ansible.builtin.debug:
        msg: 'You need to now run /etc/mysql_secure_installation on the remote machine'
+   - name: Show migration warning
+     ansible.builtin.debug:
+       msg: Since this is a migration don't forget to copy the database over!
+     when: Migration == 'y'
