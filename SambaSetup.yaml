@@ -1,0 +1,45 @@
+- name: Setup Samba Share
+  hosts: themachine
+  become: true
+  vars_prompt:
+    - name: ShareName
+      prompt: Enter in the primary share name (THERE CAN BE NO SPACES!)
+      private: no
+    - name: ShareUser
+      prompt: Enter in owner username
+      private: no
+  tasks:
+    - name: Update apt cache
+      apt: update_cache=yes force_apt_get=yes
+    - name: Install Samba
+      apt:
+        name: samba
+        state: present
+    - name: Enable smbd server
+      shell: systemctl enable smbd
+    - name: Create share directory
+      file:
+        path: '/{{ShareName}}/'
+        state: directory
+        owner: '{{ShareUser}}'
+        group: '{{ShareUser}}'
+
+    - name: Configure share name
+      lineinfile:
+        path: /etc/samba/smb.conf
+        search_string: 'server string'
+        line: 'server string = {{ShareName}}'
+    - name: Append share info to smb.conf
+      blockinfile:
+        path: /etc/samba/smb.conf
+        block: |
+          [{{ShareName}}]
+          path = /{{ShareName}}
+          public = yes
+          guest only = yes
+          writable = yes
+          force create mode = 0666
+          force directory mode = 0777
+          browseable = yes
+    - name: Restart Samba
+      shell: systemctl restart smbd
